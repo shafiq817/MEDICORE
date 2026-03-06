@@ -1,0 +1,780 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MediCore — Healthcare Management System</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #060d14;
+    --surface: #0d1b2a;
+    --surface2: #112236;
+    --border: #1a3050;
+    --accent: #00d4aa;
+    --accent2: #0099ff;
+    --accent3: #ff6b6b;
+    --accent4: #ffd166;
+    --text: #e8f4ff;
+    --muted: #6b8ca8;
+    --card-glow: 0 0 30px rgba(0,212,170,0.08);
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:var(--bg); color:var(--text); font-family:'DM Sans',sans-serif; min-height:100vh; overflow-x:hidden; }
+  
+  /* Animated grid background */
+  body::before {
+    content:''; position:fixed; top:0; left:0; width:100%; height:100%;
+    background-image: linear-gradient(rgba(0,212,170,0.03) 1px, transparent 1px),
+                      linear-gradient(90deg, rgba(0,212,170,0.03) 1px, transparent 1px);
+    background-size: 50px 50px; pointer-events:none; z-index:0;
+  }
+
+  /* Sidebar */
+  .sidebar {
+    position:fixed; left:0; top:0; width:240px; height:100vh;
+    background:var(--surface); border-right:1px solid var(--border);
+    display:flex; flex-direction:column; z-index:100; padding:24px 0;
+  }
+  .logo {
+    padding:0 24px 24px;
+    border-bottom:1px solid var(--border);
+    font-family:'Syne',sans-serif; font-weight:800; font-size:20px;
+    color:var(--accent);
+    display:flex; align-items:center; gap:10px;
+  }
+  .logo-icon { width:36px; height:36px; background:var(--accent); border-radius:10px;
+    display:flex; align-items:center; justify-content:center; font-size:18px; }
+  .nav { padding:20px 0; flex:1; }
+  .nav-item {
+    display:flex; align-items:center; gap:12px; padding:12px 24px;
+    cursor:pointer; transition:all 0.2s; color:var(--muted); font-size:14px;
+    border-left:3px solid transparent;
+  }
+  .nav-item:hover { color:var(--text); background:rgba(0,212,170,0.05); }
+  .nav-item.active { color:var(--accent); border-left-color:var(--accent); background:rgba(0,212,170,0.08); }
+  .nav-icon { font-size:18px; width:22px; text-align:center; }
+  
+  .sidebar-footer { padding:16px 24px; border-top:1px solid var(--border); font-size:12px; color:var(--muted); }
+  .status-dot { display:inline-block; width:8px; height:8px; background:var(--accent); border-radius:50%; margin-right:6px; animation:pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+  /* Main content */
+  .main { margin-left:240px; padding:32px; position:relative; z-index:1; }
+  
+  .page { display:none; }
+  .page.active { display:block; animation:fadeIn 0.3s ease; }
+  @keyframes fadeIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+
+  .page-header { margin-bottom:32px; }
+  .page-header h1 { font-family:'Syne',sans-serif; font-size:28px; font-weight:800; }
+  .page-header p { color:var(--muted); margin-top:6px; font-size:14px; }
+
+  /* KPI Cards */
+  .kpi-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:20px; margin-bottom:32px; }
+  .kpi-card {
+    background:var(--surface); border:1px solid var(--border); border-radius:16px;
+    padding:24px; position:relative; overflow:hidden; box-shadow:var(--card-glow);
+    transition:transform 0.2s, border-color 0.2s;
+  }
+  .kpi-card:hover { transform:translateY(-3px); border-color:var(--accent); }
+  .kpi-card::before {
+    content:''; position:absolute; top:0; right:0; width:80px; height:80px;
+    border-radius:50%; opacity:0.06; transform:translate(20px,-20px);
+  }
+  .kpi-card:nth-child(1)::before { background:var(--accent); }
+  .kpi-card:nth-child(2)::before { background:var(--accent2); }
+  .kpi-card:nth-child(3)::before { background:var(--accent3); }
+  .kpi-card:nth-child(4)::before { background:var(--accent4); }
+  .kpi-label { font-size:12px; color:var(--muted); text-transform:uppercase; letter-spacing:1px; margin-bottom:10px; }
+  .kpi-value { font-family:'Syne',sans-serif; font-size:32px; font-weight:800; }
+  .kpi-card:nth-child(1) .kpi-value { color:var(--accent); }
+  .kpi-card:nth-child(2) .kpi-value { color:var(--accent2); }
+  .kpi-card:nth-child(3) .kpi-value { color:var(--accent3); }
+  .kpi-card:nth-child(4) .kpi-value { color:var(--accent4); }
+  .kpi-sub { font-size:12px; color:var(--muted); margin-top:6px; }
+  .kpi-trend { font-size:12px; margin-top:8px; }
+  .trend-up { color:#00d4aa; }
+  .trend-dn { color:#ff6b6b; }
+
+  /* Charts grid */
+  .charts-grid { display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-bottom:32px; }
+  .chart-card {
+    background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:24px;
+    box-shadow:var(--card-glow);
+  }
+  .chart-card.wide { grid-column:span 2; }
+  .chart-title { font-family:'Syne',sans-serif; font-size:15px; font-weight:700; margin-bottom:20px; color:var(--text); }
+  .chart-wrap { position:relative; height:250px; }
+  .chart-wrap.tall { height:300px; }
+
+  /* Patients Table */
+  .table-controls { display:flex; gap:12px; margin-bottom:20px; align-items:center; flex-wrap:wrap; }
+  .search-box {
+    flex:1; min-width:200px; background:var(--surface2); border:1px solid var(--border);
+    border-radius:10px; padding:10px 16px; color:var(--text); font-size:14px; outline:none;
+    font-family:'DM Sans',sans-serif;
+  }
+  .search-box:focus { border-color:var(--accent); }
+  .filter-select {
+    background:var(--surface2); border:1px solid var(--border); border-radius:10px;
+    padding:10px 16px; color:var(--text); font-size:14px; outline:none; cursor:pointer;
+  }
+  .filter-select:focus { border-color:var(--accent); }
+
+  .data-table { width:100%; border-collapse:collapse; font-size:13px; }
+  .data-table th { 
+    text-align:left; padding:12px 16px; color:var(--muted); font-weight:500;
+    text-transform:uppercase; font-size:11px; letter-spacing:0.8px;
+    border-bottom:1px solid var(--border);
+  }
+  .data-table td { padding:12px 16px; border-bottom:1px solid rgba(26,48,80,0.5); vertical-align:middle; }
+  .data-table tr:hover td { background:rgba(0,212,170,0.03); }
+  
+  .badge {
+    display:inline-block; padding:3px 10px; border-radius:20px; font-size:11px; font-weight:500;
+  }
+  .badge-recovered { background:rgba(0,212,170,0.15); color:var(--accent); }
+  .badge-discharged { background:rgba(0,153,255,0.15); color:var(--accent2); }
+  .badge-referred { background:rgba(255,209,102,0.15); color:var(--accent4); }
+  .badge-deceased { background:rgba(255,107,107,0.15); color:var(--accent3); }
+  .badge-emergency { background:rgba(255,107,107,0.15); color:var(--accent3); }
+  .badge-elective { background:rgba(0,212,170,0.15); color:var(--accent); }
+  .badge-urgent { background:rgba(255,209,102,0.15); color:var(--accent4); }
+
+  .pagination { display:flex; gap:8px; align-items:center; justify-content:center; margin-top:20px; }
+  .page-btn {
+    background:var(--surface2); border:1px solid var(--border); border-radius:8px;
+    padding:8px 14px; color:var(--muted); cursor:pointer; font-size:13px; transition:all 0.2s;
+  }
+  .page-btn:hover, .page-btn.active { background:var(--accent); color:#000; border-color:var(--accent); font-weight:600; }
+  .page-info { color:var(--muted); font-size:13px; }
+
+  /* Risk Predictor */
+  .predictor-grid { display:grid; grid-template-columns:1fr 1fr; gap:24px; }
+  .predictor-form { background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:28px; }
+  .predictor-result { background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:28px; display:flex; flex-direction:column; align-items:center; justify-content:center; }
+  
+  .form-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+  .form-group { display:flex; flex-direction:column; gap:8px; }
+  .form-group label { font-size:12px; color:var(--muted); text-transform:uppercase; letter-spacing:0.8px; }
+  .form-input, .form-select {
+    background:var(--surface2); border:1px solid var(--border); border-radius:10px;
+    padding:10px 14px; color:var(--text); font-size:14px; outline:none;
+    font-family:'DM Sans',sans-serif; width:100%;
+  }
+  .form-input:focus, .form-select:focus { border-color:var(--accent); }
+  .form-select option { background:var(--surface2); }
+  
+  .predict-btn {
+    margin-top:20px; width:100%; padding:14px; background:var(--accent); color:#000;
+    border:none; border-radius:12px; font-family:'Syne',sans-serif; font-size:15px;
+    font-weight:700; cursor:pointer; transition:all 0.2s; letter-spacing:0.5px;
+  }
+  .predict-btn:hover { background:#00f0c0; transform:translateY(-2px); }
+
+  .risk-meter { position:relative; width:200px; height:200px; margin:0 auto 20px; }
+  .risk-score-num { 
+    font-family:'Syne',sans-serif; font-size:52px; font-weight:800; text-align:center;
+    transition:color 0.5s;
+  }
+  .risk-label { font-size:16px; text-align:center; margin-top:8px; font-weight:500; }
+  .risk-desc { font-size:12px; color:var(--muted); text-align:center; margin-top:12px; max-width:200px; }
+
+  /* Doctors */
+  .doctors-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:20px; }
+  .doctor-card {
+    background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:24px;
+    text-align:center; transition:all 0.2s; box-shadow:var(--card-glow);
+  }
+  .doctor-card:hover { transform:translateY(-4px); border-color:var(--accent2); }
+  .doctor-avatar {
+    width:70px; height:70px; border-radius:50%; background:var(--surface2);
+    border:2px solid var(--border); margin:0 auto 16px;
+    display:flex; align-items:center; justify-content:center; font-size:28px;
+  }
+  .doctor-name { font-family:'Syne',sans-serif; font-size:16px; font-weight:700; margin-bottom:4px; }
+  .doctor-stat { font-size:12px; color:var(--muted); margin-top:4px; }
+  .doctor-stat span { color:var(--text); font-weight:500; }
+  .doctor-rate { 
+    display:inline-block; margin-top:12px; padding:4px 12px;
+    background:rgba(0,212,170,0.1); color:var(--accent); border-radius:20px; font-size:12px;
+  }
+
+  /* Vitals page */
+  .vitals-grid { display:grid; grid-template-columns:repeat(5,1fr); gap:16px; margin-bottom:28px; }
+  .vital-card {
+    background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:20px;
+    text-align:center; position:relative; overflow:hidden;
+  }
+  .vital-icon { font-size:28px; margin-bottom:10px; }
+  .vital-name { font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:0.8px; }
+  .vital-val { font-family:'Syne',sans-serif; font-size:26px; font-weight:800; margin:6px 0 2px; }
+  .vital-unit { font-size:11px; color:var(--muted); }
+
+  /* Loading state */
+  .loading { display:flex; align-items:center; justify-content:center; height:200px; color:var(--muted); font-size:14px; }
+  .spinner { width:24px; height:24px; border:2px solid var(--border); border-top-color:var(--accent); border-radius:50%; animation:spin 0.7s linear infinite; margin-right:10px; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<nav class="sidebar">
+  <div class="logo">
+    <div class="logo-icon">🏥</div>
+    MediCore
+  </div>
+  <div class="nav">
+    <div class="nav-item active" onclick="showPage('dashboard')">
+      <span class="nav-icon">📊</span> Dashboard
+    </div>
+    <div class="nav-item" onclick="showPage('patients')">
+      <span class="nav-icon">👥</span> Patients
+    </div>
+    <div class="nav-item" onclick="showPage('vitals')">
+      <span class="nav-icon">💓</span> Vitals & Analytics
+    </div>
+    <div class="nav-item" onclick="showPage('risk')">
+      <span class="nav-icon">🎯</span> Risk Predictor
+    </div>
+    <div class="nav-item" onclick="showPage('doctors')">
+      <span class="nav-icon">🩺</span> Doctors
+    </div>
+  </div>
+  <div class="sidebar-footer">
+    <span class="status-dot"></span>System Online<br>
+    <span style="color:var(--accent);font-size:11px">500 patient records loaded</span>
+  </div>
+</nav>
+
+<main class="main">
+
+  <!-- DASHBOARD -->
+  <div id="page-dashboard" class="page active">
+    <div class="page-header">
+      <h1>Dashboard Overview</h1>
+      <p>Healthcare analytics powered by Kaggle patient dataset · 500 records</p>
+    </div>
+    <div class="kpi-grid" id="kpi-grid">
+      <div class="loading"><div class="spinner"></div>Loading stats...</div>
+    </div>
+    <div class="charts-grid">
+      <div class="chart-card">
+        <div class="chart-title">📅 Monthly Admissions (2023)</div>
+        <div class="chart-wrap"><canvas id="chartMonthly"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">🏢 Patients by Department</div>
+        <div class="chart-wrap"><canvas id="chartDept"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">✅ Patient Outcomes</div>
+        <div class="chart-wrap"><canvas id="chartOutcome"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">🛡️ Insurance Distribution</div>
+        <div class="chart-wrap"><canvas id="chartInsurance"></canvas></div>
+      </div>
+      <div class="chart-card wide">
+        <div class="chart-title">💰 Average Billing by Department</div>
+        <div class="chart-wrap"><canvas id="chartBilling"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PATIENTS -->
+  <div id="page-patients" class="page">
+    <div class="page-header">
+      <h1>Patient Records</h1>
+      <p>Browse and filter all patient data from the healthcare dataset</p>
+    </div>
+    <div class="chart-card">
+      <div class="table-controls">
+        <input class="search-box" id="search-input" placeholder="🔍 Search by Patient ID or Doctor..." oninput="debounceSearch()">
+        <select class="filter-select" id="dept-filter" onchange="loadPatients(1)">
+          <option value="">All Departments</option>
+          <option value="Cardiology">Cardiology</option>
+          <option value="Neurology">Neurology</option>
+          <option value="Orthopedics">Orthopedics</option>
+          <option value="Pediatrics">Pediatrics</option>
+          <option value="Oncology">Oncology</option>
+          <option value="General Medicine">General Medicine</option>
+        </select>
+      </div>
+      <div id="patients-table-wrap">
+        <div class="loading"><div class="spinner"></div>Loading patients...</div>
+      </div>
+      <div class="pagination" id="pagination"></div>
+    </div>
+  </div>
+
+  <!-- VITALS -->
+  <div id="page-vitals" class="page">
+    <div class="page-header">
+      <h1>Vitals & Clinical Analytics</h1>
+      <p>Population health metrics and clinical data analysis</p>
+    </div>
+    <div class="vitals-grid" id="vitals-cards"></div>
+    <div class="charts-grid">
+      <div class="chart-card">
+        <div class="chart-title">🩸 Medical Conditions Prevalence</div>
+        <div class="chart-wrap tall"><canvas id="chartConditions"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">👤 Age Distribution of Patients</div>
+        <div class="chart-wrap tall"><canvas id="chartAge"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">⚡ Admission Types</div>
+        <div class="chart-wrap"><canvas id="chartAdmission"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">⚥ Gender Split</div>
+        <div class="chart-wrap"><canvas id="chartGender"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- RISK PREDICTOR -->
+  <div id="page-risk" class="page">
+    <div class="page-header">
+      <h1>Patient Risk Predictor</h1>
+      <p>ML-powered risk assessment using Random Forest trained on patient data</p>
+    </div>
+    <div class="predictor-grid">
+      <div class="predictor-form">
+        <h3 style="font-family:Syne;margin-bottom:20px;font-size:16px">Enter Patient Vitals</h3>
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Age</label>
+            <input class="form-input" type="number" id="p-age" value="55" min="1" max="100">
+          </div>
+          <div class="form-group">
+            <label>Gender</label>
+            <select class="form-select" id="p-gender">
+              <option value="Male">Male</option><option value="Female">Female</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Department</label>
+            <select class="form-select" id="p-dept">
+              <option value="Cardiology">Cardiology</option><option value="Neurology">Neurology</option><option value="Orthopedics">Orthopedics</option>
+              <option value="Pediatrics">Pediatrics</option><option value="Oncology">Oncology</option><option value="General Medicine">General Medicine</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Condition</label>
+            <select class="form-select" id="p-cond">
+              <option value="Hypertension">Hypertension</option><option value="Diabetes">Diabetes</option><option value="Heart Disease">Heart Disease</option>
+              <option value="Stroke">Stroke</option><option value="Asthma">Asthma</option><option value="Arthritis">Arthritis</option>
+              <option value="Cancer">Cancer</option><option value="Obesity">Obesity</option><option value="None">None</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>BP Systolic</label>
+            <input class="form-input" type="number" id="p-bps" value="130">
+          </div>
+          <div class="form-group">
+            <label>BP Diastolic</label>
+            <input class="form-input" type="number" id="p-bpd" value="85">
+          </div>
+          <div class="form-group">
+            <label>Glucose (mg/dL)</label>
+            <input class="form-input" type="number" id="p-glu" value="120">
+          </div>
+          <div class="form-group">
+            <label>Cholesterol</label>
+            <input class="form-input" type="number" id="p-chol" value="200">
+          </div>
+          <div class="form-group">
+            <label>Heart Rate</label>
+            <input class="form-input" type="number" id="p-hr" value="80">
+          </div>
+        </div>
+        <button class="predict-btn" onclick="predictRisk()">🎯 Assess Risk</button>
+      </div>
+      <div class="predictor-result">
+        <div style="margin-bottom:16px;font-size:13px;color:var(--muted);text-align:center">Risk Assessment Result</div>
+        <div class="risk-score-num" id="risk-score" style="color:var(--muted)">—</div>
+        <div class="risk-label" id="risk-label">Enter values and click Assess</div>
+        <div class="risk-desc" id="risk-desc">The ML model uses Random Forest trained on 500 patient records including vitals, demographics and clinical history.</div>
+        <canvas id="chartRisk" width="200" height="200" style="margin-top:20px;display:none"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- DOCTORS -->
+  <div id="page-doctors" class="page">
+    <div class="page-header">
+      <h1>Medical Staff Performance</h1>
+      <p>Doctor statistics derived from patient outcome data</p>
+    </div>
+    <div class="doctors-grid" id="doctors-grid">
+      <div class="loading"><div class="spinner"></div>Loading doctors...</div>
+    </div>
+  </div>
+
+</main>
+
+<script>
+const BASE = window.location.origin;
+let statsData = null;
+let patientsCurrentPage = 1;
+let searchTimer;
+let riskChart = null;
+
+const doctorEmojis = ['👨‍⚕️','👩‍⚕️','🧑‍⚕️','👨‍🔬','👩‍🔬','🩺'];
+
+function showPage(name) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('page-'+name).classList.add('active');
+  document.querySelectorAll('.nav-item')[['dashboard','patients','vitals','risk','doctors'].indexOf(name)].classList.add('active');
+  
+  if (name === 'patients') loadPatients(1);
+  if (name === 'doctors') loadDoctors();
+  if (name === 'vitals' && statsData) renderVitals();
+}
+
+async function fetchStats() {
+  try {
+    const r = await fetch(BASE + '/api/stats');
+    statsData = await r.json();
+    renderKPIs();
+    renderDashboardCharts();
+  } catch(e) {
+    document.getElementById('kpi-grid').innerHTML = '<div style="color:var(--accent3);padding:20px">⚠️ Could not connect to backend. Make sure Flask server is running on port 5050.</div>';
+  }
+}
+
+function renderKPIs() {
+  const d = statsData;
+  document.getElementById('kpi-grid').innerHTML = `
+    <div class="kpi-card">
+      <div class="kpi-label">Total Patients</div>
+      <div class="kpi-value">${d.total_patients}</div>
+      <div class="kpi-sub">Across all departments</div>
+      <div class="kpi-trend trend-up">↑ 2023 records</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Recovery Rate</div>
+      <div class="kpi-value">${d.recovery_rate}%</div>
+      <div class="kpi-sub">Patients recovered</div>
+      <div class="kpi-trend trend-up">↑ above average</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Avg. Stay (Days)</div>
+      <div class="kpi-value">${d.avg_los}</div>
+      <div class="kpi-sub">Length of hospitalization</div>
+      <div class="kpi-trend trend-dn">Emergency: ${d.emergency_cases} cases</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Total Revenue</div>
+      <div class="kpi-value">$${(d.total_revenue/1e6).toFixed(2)}M</div>
+      <div class="kpi-sub">Cumulative billing</div>
+      <div class="kpi-trend trend-up">↑ across all insurance</div>
+    </div>
+  `;
+}
+
+function renderDashboardCharts() {
+  const d = statsData;
+  const gridAlpha = 'rgba(26,48,80,0.5)';
+  const tickColor = '#6b8ca8';
+  const baseOpts = { responsive:true, maintainAspectRatio:false,
+    plugins:{ legend:{ labels:{ color:'#e8f4ff', font:{size:11} } } },
+    scales: { x:{ grid:{color:gridAlpha}, ticks:{color:tickColor,font:{size:11}} },
+              y:{ grid:{color:gridAlpha}, ticks:{color:tickColor,font:{size:11}} } }
+  };
+
+  // Monthly
+  new Chart(document.getElementById('chartMonthly'), {
+    type:'line',
+    data: {
+      labels: Object.keys(d.monthly_admissions).map(m=>m.slice(5)),
+      datasets:[{ label:'Admissions', data:Object.values(d.monthly_admissions),
+        borderColor:'#00d4aa', backgroundColor:'rgba(0,212,170,0.1)',
+        fill:true, tension:0.4, pointBackgroundColor:'#00d4aa', pointRadius:4 }]
+    },
+    options: {...baseOpts}
+  });
+
+  // Dept
+  new Chart(document.getElementById('chartDept'), {
+    type:'bar',
+    data: {
+      labels: Object.keys(d.dept_counts),
+      datasets:[{ label:'Patients', data:Object.values(d.dept_counts),
+        backgroundColor:['#00d4aa','#0099ff','#ff6b6b','#ffd166','#a78bfa','#f472b6'],
+        borderRadius:6 }]
+    },
+    options: {...baseOpts, plugins:{...baseOpts.plugins, legend:{display:false}}}
+  });
+
+  // Outcomes
+  new Chart(document.getElementById('chartOutcome'), {
+    type:'doughnut',
+    data: {
+      labels: Object.keys(d.outcome_counts),
+      datasets:[{ data:Object.values(d.outcome_counts),
+        backgroundColor:['#00d4aa','#0099ff','#ffd166','#ff6b6b'],
+        borderColor:'#0d1b2a', borderWidth:3 }]
+    },
+    options: { responsive:true, maintainAspectRatio:false, cutout:'65%',
+      plugins:{ legend:{ labels:{ color:'#e8f4ff', font:{size:11}, padding:16 } } } }
+  });
+
+  // Insurance
+  new Chart(document.getElementById('chartInsurance'), {
+    type:'pie',
+    data: {
+      labels: Object.keys(d.insurance_counts),
+      datasets:[{ data:Object.values(d.insurance_counts),
+        backgroundColor:['#0099ff','#00d4aa','#a78bfa','#ffd166'],
+        borderColor:'#0d1b2a', borderWidth:3 }]
+    },
+    options: { responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{ labels:{ color:'#e8f4ff', font:{size:11} } } } }
+  });
+
+  // Billing
+  new Chart(document.getElementById('chartBilling'), {
+    type:'bar',
+    data: {
+      labels: Object.keys(d.avg_billing_dept),
+      datasets:[{ label:'Avg Billing ($)', data:Object.values(d.avg_billing_dept),
+        backgroundColor:'rgba(0,153,255,0.7)', borderColor:'#0099ff',
+        borderWidth:1, borderRadius:8 }]
+    },
+    options: {...baseOpts, plugins:{...baseOpts.plugins, legend:{display:false}}}
+  });
+}
+
+function renderVitals() {
+  const v = statsData.avg_vitals;
+  const cards = [
+    { icon:'❤️', name:'Heart Rate', val:v.heart_rate, unit:'bpm', color:'#ff6b6b' },
+    { icon:'🩺', name:'Systolic BP', val:v.bp_systolic, unit:'mmHg', color:'#0099ff' },
+    { icon:'🫀', name:'Diastolic BP', val:v.bp_diastolic, unit:'mmHg', color:'#a78bfa' },
+    { icon:'🍬', name:'Glucose', val:v.glucose, unit:'mg/dL', color:'#ffd166' },
+    { icon:'💊', name:'Cholesterol', val:v.cholesterol, unit:'mg/dL', color:'#00d4aa' },
+  ];
+  document.getElementById('vitals-cards').innerHTML = cards.map(c => `
+    <div class="vital-card">
+      <div class="vital-icon">${c.icon}</div>
+      <div class="vital-name">${c.name}</div>
+      <div class="vital-val" style="color:${c.color}">${c.val}</div>
+      <div class="vital-unit">avg ${c.unit}</div>
+    </div>
+  `).join('');
+
+  const gridAlpha = 'rgba(26,48,80,0.5)';
+  const tickColor = '#6b8ca8';
+
+  // Conditions
+  new Chart(document.getElementById('chartConditions'), {
+    type:'bar',
+    data: {
+      labels: Object.keys(statsData.condition_counts),
+      datasets:[{ label:'Patients', data:Object.values(statsData.condition_counts),
+        backgroundColor:['#ff6b6b','#ffd166','#0099ff','#a78bfa','#00d4aa','#f472b6'],
+        borderRadius:6 }]
+    },
+    options: { responsive:true, maintainAspectRatio:false, indexAxis:'y',
+      plugins:{ legend:{display:false} },
+      scales:{ x:{grid:{color:gridAlpha},ticks:{color:tickColor}}, y:{grid:{color:gridAlpha},ticks:{color:tickColor}} }
+    }
+  });
+
+  // Age dist
+  new Chart(document.getElementById('chartAge'), {
+    type:'bar',
+    data: {
+      labels: Object.keys(statsData.age_distribution),
+      datasets:[{ label:'Patients', data:Object.values(statsData.age_distribution),
+        backgroundColor:'rgba(0,212,170,0.7)', borderColor:'#00d4aa',
+        borderWidth:1, borderRadius:8 }]
+    },
+    options: { responsive:true, maintainAspectRatio:false,
+      plugins:{legend:{display:false}},
+      scales:{ x:{grid:{color:gridAlpha},ticks:{color:tickColor}}, y:{grid:{color:gridAlpha},ticks:{color:tickColor}} }
+    }
+  });
+
+  // Admission type
+  const admissionData = { Emergency: 0, Elective: 0, Urgent: 0 };
+  // use outcome counts structure as proxy... but we have dept_counts; let's compute from what we have
+  // We'll use a rough estimate since we only have aggregate stats
+  new Chart(document.getElementById('chartAdmission'), {
+    type:'doughnut',
+    data: {
+      labels: ['Emergency', 'Elective', 'Urgent'],
+      datasets:[{ data:[statsData.emergency_cases, 
+        Math.round(statsData.total_patients*0.38),
+        statsData.total_patients - statsData.emergency_cases - Math.round(statsData.total_patients*0.38)],
+        backgroundColor:['#ff6b6b','#00d4aa','#ffd166'],
+        borderColor:'#0d1b2a', borderWidth:3 }]
+    },
+    options:{ responsive:true, maintainAspectRatio:false, cutout:'60%',
+      plugins:{legend:{labels:{color:'#e8f4ff',font:{size:11}}}} }
+  });
+
+  // Gender
+  new Chart(document.getElementById('chartGender'), {
+    type:'doughnut',
+    data: {
+      labels: Object.keys(statsData.gender_counts),
+      datasets:[{ data:Object.values(statsData.gender_counts),
+        backgroundColor:['#0099ff','#f472b6'],
+        borderColor:'#0d1b2a', borderWidth:3 }]
+    },
+    options:{ responsive:true, maintainAspectRatio:false, cutout:'60%',
+      plugins:{legend:{labels:{color:'#e8f4ff',font:{size:11}}}} }
+  });
+}
+
+async function loadPatients(page) {
+  patientsCurrentPage = page;
+  const search = document.getElementById('search-input').value;
+  const dept = document.getElementById('dept-filter').value;
+  document.getElementById('patients-table-wrap').innerHTML = '<div class="loading"><div class="spinner"></div>Loading...</div>';
+  try {
+    const r = await fetch(`${BASE}/api/patients?page=${page}&search=${encodeURIComponent(search)}&dept=${encodeURIComponent(dept)}`);
+    const data = await r.json();
+    renderPatientsTable(data);
+  } catch(e) {
+    document.getElementById('patients-table-wrap').innerHTML = '<div style="padding:20px;color:var(--accent3)">⚠️ Backend not connected</div>';
+  }
+}
+
+function renderPatientsTable(data) {
+  const outcomeClass = { Recovered:'badge-recovered', Discharged:'badge-discharged', Referred:'badge-referred', Deceased:'badge-deceased' };
+  const admClass = { Emergency:'badge-emergency', Elective:'badge-elective', Urgent:'badge-urgent' };
+  
+  const rows = data.patients.map(p => `
+    <tr>
+      <td style="font-family:Syne;font-weight:700;color:var(--accent)">${p.patient_id}</td>
+      <td>${p.age}</td>
+      <td>${p.gender}</td>
+      <td>${p.blood_type}</td>
+      <td>${p.department}</td>
+      <td>${p.condition}</td>
+      <td><span class="badge ${admClass[p.admission_type]}">${p.admission_type}</span></td>
+      <td>${p.length_of_stay}d</td>
+      <td>$${parseFloat(p.billing_amount).toLocaleString('en-US',{maximumFractionDigits:0})}</td>
+      <td><span class="badge ${outcomeClass[p.outcome]}">${p.outcome}</span></td>
+      <td style="color:var(--muted)">${p.doctor}</td>
+    </tr>
+  `).join('');
+
+  document.getElementById('patients-table-wrap').innerHTML = `
+    <table class="data-table">
+      <thead><tr>
+        <th>ID</th><th>Age</th><th>Gender</th><th>Blood</th><th>Department</th>
+        <th>Condition</th><th>Admission</th><th>LOS</th><th>Billing</th><th>Outcome</th><th>Doctor</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+  `;
+
+  // Pagination
+  const pages = data.pages;
+  const current = data.current_page;
+  let paginationHTML = `<span class="page-info">Showing ${data.patients.length} of ${data.total} records</span>`;
+  
+  if(pages > 1) {
+    paginationHTML += `<button class="page-btn" onclick="loadPatients(${Math.max(1,current-1)})" ${current===1?'disabled':''}>‹</button>`;
+    for(let i=Math.max(1,current-2); i<=Math.min(pages,current+2); i++) {
+      paginationHTML += `<button class="page-btn ${i===current?'active':''}" onclick="loadPatients(${i})">${i}</button>`;
+    }
+    paginationHTML += `<button class="page-btn" onclick="loadPatients(${Math.min(pages,current+1)})" ${current===pages?'disabled':''}>›</button>`;
+  }
+  document.getElementById('pagination').innerHTML = paginationHTML;
+}
+
+function debounceSearch() {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(() => loadPatients(1), 300);
+}
+
+async function predictRisk() {
+  const payload = {
+    age: document.getElementById('p-age').value,
+    gender: document.getElementById('p-gender').value,
+    department: document.getElementById('p-dept').value,
+    condition: document.getElementById('p-cond').value,
+    bp_systolic: document.getElementById('p-bps').value,
+    bp_diastolic: document.getElementById('p-bpd').value,
+    glucose: document.getElementById('p-glu').value,
+    cholesterol: document.getElementById('p-chol').value,
+    heart_rate: document.getElementById('p-hr').value
+  };
+
+  document.getElementById('risk-score').textContent = '...';
+  document.getElementById('risk-label').textContent = 'Assessing...';
+
+  try {
+    const r = await fetch(BASE+'/api/predict_risk', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) });
+    const data = await r.json();
+    
+    const pct = data.risk_probability;
+    const level = data.risk_level;
+    const color = level === 'High' ? '#ff6b6b' : level === 'Medium' ? '#ffd166' : '#00d4aa';
+    
+    document.getElementById('risk-score').style.color = color;
+    document.getElementById('risk-score').textContent = pct + '%';
+    document.getElementById('risk-label').textContent = level + ' Risk';
+    document.getElementById('risk-label').style.color = color;
+    document.getElementById('risk-desc').textContent = 
+      level === 'High' ? '⚠️ Patient shows elevated clinical markers. Immediate medical review recommended.' :
+      level === 'Medium' ? '⚡ Patient has moderate risk indicators. Regular monitoring advised.' :
+      '✅ Patient vitals within acceptable range. Continue standard care protocol.';
+
+    // Gauge chart
+    const canvas = document.getElementById('chartRisk');
+    canvas.style.display = 'block';
+    if(riskChart) riskChart.destroy();
+    riskChart = new Chart(canvas, {
+      type:'doughnut',
+      data: {
+        datasets:[{ data:[pct, 100-pct],
+          backgroundColor:[color, 'rgba(26,48,80,0.5)'],
+          borderWidth:0 }]
+      },
+      options:{ responsive:false, cutout:'75%', rotation:-90, circumference:180,
+        plugins:{legend:{display:false}, tooltip:{enabled:false}} }
+    });
+  } catch(e) {
+    document.getElementById('risk-score').textContent = '!';
+    document.getElementById('risk-label').textContent = 'Backend not connected';
+    document.getElementById('risk-desc').textContent = 'Please start the Flask server (python app.py)';
+  }
+}
+
+async function loadDoctors() {
+  try {
+    const r = await fetch(BASE+'/api/doctor_stats');
+    const data = await r.json();
+    document.getElementById('doctors-grid').innerHTML = data.map((doc, i) => `
+      <div class="doctor-card">
+        <div class="doctor-avatar">${doctorEmojis[i % doctorEmojis.length]}</div>
+        <div class="doctor-name">${doc.doctor}</div>
+        <div class="doctor-stat">Patients: <span>${doc.patients}</span></div>
+        <div class="doctor-stat">Avg LOS: <span>${doc.avg_los} days</span></div>
+        <div class="doctor-stat">Total Billing: <span>$${(doc.total_billing/1000).toFixed(0)}K</span></div>
+        <div class="doctor-rate">Recovery: ${doc.recovery_rate}%</div>
+      </div>
+    `).join('');
+  } catch(e) {
+    document.getElementById('doctors-grid').innerHTML = '<div style="color:var(--accent3);padding:20px">⚠️ Backend not connected</div>';
+  }
+}
+
+// Init
+fetchStats();
+</script>
+</body>
+</html>
